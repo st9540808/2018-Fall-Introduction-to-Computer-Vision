@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 
 import sys
-import os
 import cv2
 import numpy as np
 import math
+import os
 from hw2_ui import Ui_MainWindow
 from PyQt5.QtWidgets import QMainWindow, QApplication
 from matplotlib import pyplot as plt
@@ -15,6 +15,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         super(MainWindow, self).__init__(parent)
         self.setupUi(self)
         self.onBindingUI()
+        self.rvecs = None
+        self.tvecs = None
+        self.distCoeffs = None
+        self.cameraMatrix = None
+        self.objpts, self.imgpts = None, None
+        np.set_printoptions(suppress=True, precision=6)
 
     # Write your code below
     # UI components are defined in hw1_ui.py, please take a look.
@@ -99,21 +105,74 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # plt.imshow(roihist, interpolation='nearest')
         # plt.show()
 
-    def on_btn3_1_click(self):
-        pass
+    def on_btn3_1_click(self, insideCall=False):
+        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+        
+        objp = np.zeros((8*11,3), np.float32)
+        objp[:,:2] = np.mgrid[0:11, 0:8].T.reshape(-1,2)
+
+        objpts = [] # 3d point in real world space
+        imgpts = [] # 2d points in image plane.
     
-    def on_btn3_2_click(self):
-        pass
+        for i in range(1, 16):
+            img = cv2.imread(os.path.join('images', 'CameraCalibration', str(i)+'.bmp'))
+            img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            ret, corners = cv2.findChessboardCorners(img, (11,8))
+            if ret == True:
+                objpts.append(objp)
+                corners2 = cv2.cornerSubPix(img_gray, corners, (11,11), (-1,-1), criteria)
+                imgpts.append(corners2)
+                if not insideCall:
+                    result = cv2.drawChessboardCorners(img, (11,8), corners2, ret)
+                    result = cv2.pyrDown(result)
+                    cv2.imshow('3.1' + ' ' + str(i) + '.bmp', result)
+        if insideCall == True:
+            return objpts, imgpts
+
+    def on_btn3_2_click(self, insideCall=False):
+        objpts, imgpts = self.on_btn3_1_click(insideCall=True)
+        retval, cameraMatrix, distCoeffs, rvecs, tvecs = \
+            cv2.calibrateCamera(objpts, imgpts, (2048,2048), None, None)
+
+        self.objpts, self.imgpts = np.array(objpts), np.array(imgpts)
+        self.cameraMatrix = np.array(cameraMatrix)
+        self.distCoeffs = np.array(distCoeffs)
+        self.rvecs, self.tvecs = np.array(rvecs), np.array(tvecs)
+        if not insideCall:
+            print(np.array(cameraMatrix), '\n')
     
-    def on_btn3_3_click(self):
-        pass
+    def on_btn3_3_click(self, insideCall=False):
+        if self.rvecs is None:
+            self.on_btn3_2_click(insideCall=True)
+
+        index = int(self.comboBox.currentText())-1
+        extrinsic, _ = cv2.Rodrigues(self.rvecs[index])
+        extrinsic = np.append(extrinsic, self.tvecs[index], axis=1)
+        if insideCall: return extrinsic
+        print(extrinsic, '\n')
    
     def on_btn3_4_click(self):
-        pass
+        if self.distCoeffs is None:
+            self.on_btn3_2_click(insideCall=True)
+        print(self.distCoeffs)
 
     def on_btn4_1_click(self):
-        pass
+        if self.cameraMatrix is None:
+            self.on_btn3_2_click(insideCall=True)
 
+        img = cv2.imread(os.path.join('images', 'CameraCalibration', '2.bmp'))
+        axis = np.array([[0,0,0], [0,-2,0], [-2,-2,0], [-2,0,0],
+                         [0,0,-2],[0,-2,-2],[-2,-2,-2],[-2,0,-2]], dtype=np.float32)
+        axis[...,0] += 10; axis[...,1] += 7
+        imgpts, jacb = cv2.projectPoints(
+            axis, self.rvecs[1], self.tvecs[1], self.cameraMatrix, self.distCoeffs
+        )
+        imgpts = np.int32(imgpts).reshape(-1,2)
+        img = cv2.drawContours(img, [imgpts[:4]], -1, (0,0,255), 5)
+        img = cv2.drawContours(img, [imgpts[4:]], -1, (0,0,255), 5)
+        for i, j in zip(range(4), range(4,8)):
+            img = cv2.line(img, tuple(imgpts[i]), tuple(imgpts[j]), (0,0,255), 5)
+        cv2.imshow('4.1', cv2.pyrDown(img))
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
