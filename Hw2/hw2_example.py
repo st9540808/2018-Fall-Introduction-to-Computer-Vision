@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 import math
 import os
+import time
 from hw2_ui import Ui_MainWindow
 from PyQt5.QtWidgets import QMainWindow, QApplication
 from matplotlib import pyplot as plt
@@ -154,25 +155,27 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def on_btn3_4_click(self):
         if self.distCoeffs is None:
             self.on_btn3_2_click(insideCall=True)
-        print(self.distCoeffs)
+        print(self.distCoeffs.ravel())
 
     def on_btn4_1_click(self):
         if self.cameraMatrix is None:
             self.on_btn3_2_click(insideCall=True)
 
-        img = cv2.imread(os.path.join('images', 'CameraCalibration', '2.bmp'))
-        axis = np.array([[0,0,0], [0,-2,0], [-2,-2,0], [-2,0,0],
-                         [0,0,-2],[0,-2,-2],[-2,-2,-2],[-2,0,-2]], dtype=np.float32)
-        axis[...,0] += 10; axis[...,1] += 7
-        imgpts, jacb = cv2.projectPoints(
-            axis, self.rvecs[1], self.tvecs[1], self.cameraMatrix, self.distCoeffs
-        )
-        imgpts = np.int32(imgpts).reshape(-1,2)
-        img = cv2.drawContours(img, [imgpts[:4]], -1, (0,0,255), 5)
-        img = cv2.drawContours(img, [imgpts[4:]], -1, (0,0,255), 5)
-        for i, j in zip(range(4), range(4,8)):
-            img = cv2.line(img, tuple(imgpts[i]), tuple(imgpts[j]), (0,0,255), 5)
-        cv2.imshow('4.1', cv2.pyrDown(img))
+        for idx in range(5):
+            img = cv2.imread(os.path.join('images', 'CameraCalibration', str(idx+1)+'.bmp'))
+            axis = np.array([[0,0,0], [0,-2,0], [-2,-2,0], [-2,0,0],
+                            [0,0,-2],[0,-2,-2],[-2,-2,-2],[-2,0,-2]], dtype=np.float32)
+            axis[...,0] += 10; axis[...,1] += 7
+            imgpts, jacob = cv2.projectPoints(
+                axis, self.rvecs[idx], self.tvecs[idx], self.cameraMatrix, self.distCoeffs)
+            imgpts = np.int32(imgpts).reshape(-1,2)
+            
+            img = cv2.drawContours(img, [imgpts[:4]], -1, (0,0,255), 5)
+            img = cv2.drawContours(img, [imgpts[4:]], -1, (0,0,255), 5)
+            for i,j in zip(range(4), range(4,8)):
+                img = cv2.line(img, tuple(imgpts[i]), tuple(imgpts[j]), (0,0,255), 5)
+            cv2.imshow('4.1', cv2.pyrDown(img))
+            cv2.waitKey(500)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
