@@ -19,7 +19,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.distCoeffs = None
         self.cameraMatrix = None
         self.objpts, self.imgpts = None, None
-        np.set_printoptions(suppress=True, precision=6)
+        np.set_printoptions(suppress=True, precision=6, floatmode='fixed')
 
     # Write your code below
     # UI components are defined in hw1_ui.py, please take a look.
@@ -73,7 +73,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         circles = cv2.HoughCircles(img_gray, cv2.HOUGH_GRADIENT, 1, 10, param1=100, \
                                    param2=15, minRadius=15, maxRadius=20)
         circles = np.uint16(np.around(circles))
-        
+
         mask = np.zeros(img_gray.shape, dtype=bool)
         for circle in circles[0,:]:
             for x in range(circle[0]-circle[2]+1, circle[0]+circle[2]):
@@ -88,31 +88,34 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             return M
         else:
             plt.hist(roi[...,0].ravel(), 256, [0,256], color='r', density=True)
+            plt.title('Normalized Hue histogram')
+            plt.xlabel('Angle'); plt.ylabel('Probability')
             plt.show()
 
     def on_btn2_3_click(self):
         roihist = self.on_btn2_2_click(ret=True)
         cv2.normalize(roihist, roihist, 0, 255, cv2.NORM_MINMAX)
-        
+
         target = cv2.imread(os.path.join('images', 'q2_test.jpg'))
         target_hsv = cv2.cvtColor(target, cv2.COLOR_BGR2HSV)
         backproj = cv2.calcBackProject([target_hsv], [0,1], roihist, [0,180,0,256], 1)
         cv2.normalize(backproj, backproj, 0, 255, cv2.NORM_MINMAX)
-        
+
         _, backproj = cv2.threshold(backproj, 6, 255, cv2.THRESH_BINARY)
-        cv2.imshow('2.3', backproj)
+        cv2.imshow('2.3 BackProjection_result.jpg', backproj)
+        cv2.imwrite('BackProjection_result.jpg', backproj)
         # plt.imshow(roihist, interpolation='nearest')
         # plt.show()
 
     def on_btn3_1_click(self, insideCall=False):
         criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
-        
+
         objp = np.zeros((8*11,3), np.float32)
         objp[:,:2] = np.mgrid[0:11, 0:8].T.reshape(-1,2)
 
         objpts = [] # 3d point in real world space
         imgpts = [] # 2d points in image plane.
-    
+
         for i in range(1, 16):
             img = cv2.imread(os.path.join('images', 'CameraCalibration', str(i)+'.bmp'))
             img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -125,7 +128,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     result = cv2.drawChessboardCorners(img, (11,8), corners2, ret)
                     result = cv2.pyrDown(result)
                     cv2.imshow('3.1' + ' ' + str(i) + '.bmp', result)
-        if insideCall == True:
+        if insideCall:
             return objpts, imgpts
 
     def on_btn3_2_click(self, insideCall=False):
@@ -139,7 +142,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.rvecs, self.tvecs = np.array(rvecs), np.array(tvecs)
         if not insideCall:
             print(np.array(cameraMatrix), '\n')
-    
+
     def on_btn3_3_click(self, insideCall=False):
         if self.rvecs is None:
             self.on_btn3_2_click(insideCall=True)
@@ -147,13 +150,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         index = int(self.comboBox.currentText())-1
         extrinsic, _ = cv2.Rodrigues(self.rvecs[index])
         extrinsic = np.append(extrinsic, self.tvecs[index], axis=1)
-        if insideCall: return extrinsic
+        if insideCall:
+            return extrinsic
         print(extrinsic, '\n')
-   
+
     def on_btn3_4_click(self):
         if self.distCoeffs is None:
             self.on_btn3_2_click(insideCall=True)
-        print(self.distCoeffs.ravel())
+        print(self.distCoeffs.ravel(), '\n')
 
     def on_btn4_1_click(self):
         if self.cameraMatrix is None:
@@ -167,7 +171,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             imgpts, jacob = cv2.projectPoints(
                 axis, self.rvecs[idx], self.tvecs[idx], self.cameraMatrix, self.distCoeffs)
             imgpts = np.int32(imgpts).reshape(-1,2)
-            
+
             img = cv2.drawContours(img, [imgpts[:4]], -1, (0,0,255), 5)
             img = cv2.drawContours(img, [imgpts[4:]], -1, (0,0,255), 5)
             for i,j in zip(range(4), range(4,8)):
