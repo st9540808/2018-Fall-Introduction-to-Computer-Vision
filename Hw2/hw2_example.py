@@ -5,11 +5,9 @@ import cv2
 import numpy as np
 import math
 import os
-import time
 from hw2_ui import Ui_MainWindow
 from PyQt5.QtWidgets import QMainWindow, QApplication
 from matplotlib import pyplot as plt
-
 
 class MainWindow(QMainWindow, Ui_MainWindow):
     def __init__(self, parent=None):
@@ -164,7 +162,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         for idx in range(5):
             img = cv2.imread(os.path.join('images', 'CameraCalibration', str(idx+1)+'.bmp'))
             axis = np.array([[0,0,0], [0,-2,0], [-2,-2,0], [-2,0,0],
-                            [0,0,-2],[0,-2,-2],[-2,-2,-2],[-2,0,-2]], dtype=np.float32)
+                             [0,0,-2],[0,-2,-2],[-2,-2,-2],[-2,0,-2]], dtype=np.float32)
             axis[...,0] += 10; axis[...,1] += 7
             imgpts, jacob = cv2.projectPoints(
                 axis, self.rvecs[idx], self.tvecs[idx], self.cameraMatrix, self.distCoeffs)
